@@ -61,16 +61,16 @@ function App() {
     setMessage("");
 
     if (role === "Admin/Teacher") {
-      if (username.trim() === "admin" && password === "admin123") {
+      // Restored the proper professional email check
+      if (username.trim() === "admin@aceacademy.com" && password === "admin123") {
         setShowLogin(false);
         setShowDashboard(false);
         setShowAdminDashboard(true);
       } else {
-        setMessage("Invalid Admin credentials. (Hint: admin / admin123)");
+        setMessage("Invalid Admin credentials. (Hint: admin@aceacademy.com / admin123)");
       }
     } else {
-      // NEW: Safer Student Login Logic
-      // Uses optional chaining (?.) and trim() to ignore hidden spaces and prevent crashes from blank data
+      // Safer Student Login Logic
       const studentExists = dbStudents.some(
         (s) => s.name?.trim().toLowerCase() === username.trim().toLowerCase()
       );
