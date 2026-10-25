@@ -6,7 +6,9 @@ function App() {
   const [showDashboard, setShowDashboard] = useState(false);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const [role, setRole] = useState("Student");
-  const [email, setEmail] = useState("");
+  
+  // Changed from email to username to match our database names
+  const [username, setUsername] = useState(""); 
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
@@ -15,17 +17,16 @@ function App() {
   const [newSubject, setNewSubject] = useState("");
   const [newMarks, setNewMarks] = useState("");
 
-  // Calculate real dynamic numbers from your database
+  // Calculate real dynamic numbers from database
   const uniqueCoursesCount = new Set(dbStudents.map(student => student.subject)).size;
 
+  // We now fetch data immediately so the Home Page can display live stats
   useEffect(() => {
-    if (showAdminDashboard || showDashboard) {
-      fetch("http://localhost:5000/api/students")
-        .then((res) => res.json())
-        .then((data) => setDbStudents(data))
-        .catch((err) => console.error("Error connecting to database:", err));
-    }
-  }, [showAdminDashboard, showDashboard]);
+    fetch("http://localhost:5000/api/students")
+      .then((res) => res.json())
+      .then((data) => setDbStudents(data))
+      .catch((err) => console.error("Error connecting to database:", err));
+  }, []);
 
   const handleAddStudent = async (e) => {
     e.preventDefault();
@@ -48,31 +49,39 @@ function App() {
     }
   };
 
-  // REAL LOGIN LOGIC
+  // FULLY FUNCTIONAL LOGIN LOGIC
   function handleLogin(event) {
     event.preventDefault();
 
-    if (!email.trim() || !password) {
-      setMessage("Please enter your email and password.");
+    if (!username.trim() || !password) {
+      setMessage("Please enter your details.");
       return;
     }
 
     setMessage("");
 
     if (role === "Admin/Teacher") {
-      // Secure Admin Login
-      if (email === "admin@aceacademy.com" && password === "admin123") {
+      if (username === "admin" && password === "admin123") {
         setShowLogin(false);
         setShowDashboard(false);
         setShowAdminDashboard(true);
       } else {
-        setMessage("Invalid credentials. Hint: admin@aceacademy.com / admin123");
+        setMessage("Invalid Admin credentials. (Hint: admin / admin123)");
       }
     } else {
-      // Student Login (accepts any email for the demo)
-      setShowLogin(false);
-      setShowDashboard(true);
-      setShowAdminDashboard(false);
+      // NEW: Real Student Login Logic
+      // Checks if the typed username exists anywhere in the live database
+      const studentExists = dbStudents.some(
+        (s) => s.name.toLowerCase() === username.toLowerCase()
+      );
+
+      if (studentExists) {
+        setShowLogin(false);
+        setShowDashboard(true);
+        setShowAdminDashboard(false);
+      } else {
+        setMessage("Student not found. Please enter your exact registered name.");
+      }
     }
   }
 
@@ -89,6 +98,7 @@ function App() {
     setShowAdminDashboard(false);
     setMessage("");
     setPassword("");
+    setUsername("");
   }
 
   // ADMIN / TEACHER DASHBOARD
@@ -165,7 +175,7 @@ function App() {
                 </thead>
                 <tbody>
                   {dbStudents.map((student) => (
-                    <tr key={student._id || student.name}>
+                    <tr key={student._id || student.name + student.subject}>
                       <td>{student.name}</td>
                       <td>{student.subject}</td>
                       <td>{student.marks}/100</td>
@@ -180,8 +190,13 @@ function App() {
     );
   }
 
-  // STUDENT DASHBOARD
+  // FUNCTIONAL STUDENT DASHBOARD
   if (showDashboard) {
+    // Filter database to ONLY show records matching this specific student
+    const myRecords = dbStudents.filter(
+      (s) => s.name.toLowerCase() === username.toLowerCase()
+    );
+
     return (
       <div className="dashboard-page">
         <nav className="navbar">
@@ -191,22 +206,42 @@ function App() {
         <main className="dashboard-container">
           <div className="dashboard-heading">
             <p className="tagline">STUDENT PORTAL</p>
-            <h1>Welcome! 👋</h1>
+            <h1>Welcome, {username}! 👋</h1>
+            <p>Here are your official academic records.</p>
           </div>
-          <div className="dashboard-profile">
-            <div className="profile-avatar">🎓</div>
-            <div>
-              <h2>Student Profile</h2>
-              <p>Email: {email}</p>
-              <p>Role: Student</p>
+          
+          <div className="dashboard-grid">
+            <div className="dashboard-card">
+              <span>📚</span>
+              <h3>My Courses</h3>
+              <h2>{myRecords.length}</h2>
+              <p>Enrolled Subjects</p>
             </div>
           </div>
+
           <section className="dashboard-section">
-            <h2>Academy Course Directory</h2>
-            <div className="dashboard-list">
-              {[...new Set(dbStudents.map(s => s.subject))].map((course, i) => (
-                <p key={i}>📘 {course} <span>Active</span></p>
-              ))}
+            <h2>My Report Card</h2>
+            <div className="student-table-wrap">
+              <table className="student-table">
+                <thead>
+                  <tr>
+                    <th>Subject</th>
+                    <th>Marks Achieved</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {myRecords.map((record) => (
+                    <tr key={record._id || record.subject}>
+                      <td>{record.subject}</td>
+                      <td>{record.marks}/100</td>
+                      <td style={{ color: record.marks >= 40 ? 'green' : 'red' }}>
+                        {record.marks >= 40 ? 'Pass' : 'Fail'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </section>
         </main>
@@ -227,6 +262,7 @@ function App() {
             <div className="login-icon">🎓</div>
             <p className="tagline">WELCOME BACK</p>
             <h1>Login to Ace Academy</h1>
+            
             <div className="role-selector">
               <button
                 type="button"
@@ -243,27 +279,31 @@ function App() {
                 👩‍🏫 Admin/Teacher
               </button>
             </div>
+            
             <form onSubmit={handleLogin}>
-              <label htmlFor="email">Email Address</label>
+              <label htmlFor="username">
+                {role === "Student" ? "Full Name (e.g., Rahul Sharma)" : "Admin Username"}
+              </label>
               <input
-                id="email" type="email" placeholder="Enter your email"
-                value={email} onChange={(event) => setEmail(event.target.value)} required
+                id="username" type="text" placeholder={role === "Student" ? "Enter your registered name" : "Enter username"}
+                value={username} onChange={(event) => setUsername(event.target.value)} required
               />
-              <label htmlFor="password">Password</label>
+              
+              <label htmlFor="password">Password (Type anything for Demo)</label>
               <input
                 id="password" type="password" placeholder="Enter your password"
                 value={password} onChange={(event) => setPassword(event.target.value)} required
               />
               <button className="submit-login" type="submit">Login as {role} →</button>
             </form>
-            {message && <p className="login-message" role="status">{message}</p>}
+            {message && <p className="login-message" style={{color: "red"}} role="status">{message}</p>}
           </div>
         </main>
       </div>
     );
   }
 
-  // HOME PAGE
+  // DYNAMIC HOME PAGE
   return (
     <div className="app">
       <nav className="navbar">
@@ -278,7 +318,44 @@ function App() {
         <div className="hero-content">
           <p className="tagline">WELCOME TO ACE ACADEMY</p>
           <h1>Your Success Starts <span>Here.</span></h1>
-          <a className="primary-btn" href="#courses">Explore Courses →</a>
+          <a className="primary-btn" onClick={openLogin} style={{ cursor: "pointer" }}>Access Dashboard →</a>
+          
+          <div className="stats">
+            <div>
+              <h3>{dbStudents.length > 0 ? dbStudents.length : "500+"}</h3>
+              <p>Registered Students</p>
+            </div>
+            <div>
+              <h3>{uniqueCoursesCount > 0 ? uniqueCoursesCount : "10+"}</h3>
+              <p>Active Courses</p>
+            </div>
+            <div>
+              <h3>100%</h3>
+              <p>Database Integrated</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="courses" id="courses">
+        <p className="tagline">LIVE DIRECTORY</p>
+        <h2>Currently Offered Courses</h2>
+        <p className="section-desc">
+          Dynamically fetched from our MongoDB Database.
+        </p>
+
+        <div className="course-grid">
+          {uniqueCoursesCount > 0 ? (
+            [...new Set(dbStudents.map(s => s.subject))].map((course, i) => (
+              <div className="course-card" key={i}>
+                <div className="course-icon">📘</div>
+                <h3>{course}</h3>
+                <p>Active and currently enrolling students.</p>
+              </div>
+            ))
+          ) : (
+            <p>Loading database courses...</p>
+          )}
         </div>
       </section>
     </div>
