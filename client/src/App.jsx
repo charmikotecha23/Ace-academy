@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
 
 function App() {
@@ -11,55 +10,84 @@ function App() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  
-function handleLogin(event) {
-  event.preventDefault();
+  // --- NEW: Database States ---
+  const [dbStudents, setDbStudents] = useState([]);
+  const [newName, setNewName] = useState("");
+  const [newSubject, setNewSubject] = useState("");
+  const [newMarks, setNewMarks] = useState("");
 
-  if (!email.trim() || !password) {
-    setMessage("Please enter your email and password.");
-    return;
+  // --- NEW: Fetch Data from Backend ---
+  useEffect(() => {
+    if (showAdminDashboard) {
+      fetch("http://localhost:5000/api/students")
+        .then((res) => res.json())
+        .then((data) => setDbStudents(data))
+        .catch((err) => console.error("Error connecting to database:", err));
+    }
+  }, [showAdminDashboard]);
+
+  // --- NEW: Add Student to Backend ---
+  const handleAddStudent = async (e) => {
+    e.preventDefault();
+    try {
+      await fetch("http://localhost:5000/api/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName, subject: newSubject, marks: newMarks })
+      });
+      
+      // Refresh the database list after adding
+      const res = await fetch("http://localhost:5000/api/students");
+      const data = await res.json();
+      setDbStudents(data);
+      
+      // Clear form boxes
+      setNewName("");
+      setNewSubject("");
+      setNewMarks("");
+    } catch (err) {
+      console.error("Failed to save to database", err);
+    }
+  };
+
+  function handleLogin(event) {
+    event.preventDefault();
+
+    if (!email.trim() || !password) {
+      setMessage("Please enter your email and password.");
+      return;
+    }
+
+    setMessage("");
+
+    if (role === "Student") {
+      setShowLogin(false);
+      setShowDashboard(true);
+      setShowAdminDashboard(false);
+    } else {
+      setShowLogin(false);
+      setShowDashboard(false);
+      setShowAdminDashboard(true);
+    }
   }
 
-  setMessage("");
-
-  if (role === "Student") {
-    setShowLogin(false);
-    setShowDashboard(true);
+  function openLogin() {
+    setMessage("");
+    setShowLogin(true);
+    setShowDashboard(false);
     setShowAdminDashboard(false);
-  } else {
+  }
+
+  function goHome() {
     setShowLogin(false);
     setShowDashboard(false);
-    setShowAdminDashboard(true);
+    setShowAdminDashboard(false);
+    setMessage("");
+    setPassword("");
   }
-}
-
-
-  
-function openLogin() {
-  setMessage("");
-  setShowLogin(true);
-  setShowDashboard(false);
-  setShowAdminDashboard(false);
-}
-
-function goHome() {
-  setShowLogin(false);
-  setShowDashboard(false);
-  setShowAdminDashboard(false);
-  setMessage("");
-  setPassword("");
-}
-
 
   // ADMIN / TEACHER DASHBOARD
   if (showAdminDashboard) {
-    const students = [
-      { name: "Aarav Sharma", course: "Mathematics", attendance: "92%", marks: 85 },
-      { name: "Diya Patel", course: "Science", attendance: "88%", marks: 91 },
-      { name: "Rohan Shah", course: "Computer Studies", attendance: "95%", marks: 78 },
-      { name: "Anaya Mehta", course: "Mathematics", attendance: "81%", marks: 89 },
-    ];
-
     return (
       <div className="dashboard-page">
         <nav className="navbar">
@@ -80,8 +108,8 @@ function goHome() {
             <div className="dashboard-card">
               <span>👨‍🎓</span>
               <h3>Total Students</h3>
-              <h2>4</h2>
-              <p>Sample student records</p>
+              <h2>{dbStudents.length}</h2>
+              <p>Live database records</p>
             </div>
 
             <div className="dashboard-card">
@@ -93,46 +121,67 @@ function goHome() {
 
             <div className="dashboard-card">
               <span>📊</span>
-              <h3>Average Attendance</h3>
-              <h2>89%</h2>
-              <p>Sample attendance data</p>
+              <h3>Database Status</h3>
+              <h2>Online</h2>
+              <p>Connected to MongoDB</p>
             </div>
           </div>
 
+          {/* NEW: Add Student Form */}
           <section className="dashboard-section">
-            <h2>Course Overview</h2>
-            <div className="dashboard-list">
-              <p>📘 Mathematics <span>Active</span></p>
-              <p>🔬 Science <span>Active</span></p>
-              <p>💻 Computer Studies <span>Active</span></p>
-            </div>
+            <h2>Add New Student</h2>
+            <form onSubmit={handleAddStudent} style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <input 
+                type="text" placeholder="Student Name" value={newName} 
+                onChange={(e) => setNewName(e.target.value)} required 
+                style={{ flex: 1, padding: '10px', borderRadius: '5px', border: '1px solid #ccc' }}
+              />
+              <input 
+                type="text" placeholder="Subject" value={newSubject} 
+                onChange={(e) => setNewSubject(e.target.value)} required 
+                style={{ flex: 1, padding: '10px', borderRadius: '5px', border: '1px solid #ccc' }}
+              />
+              <input 
+                type="number" placeholder="Marks (out of 100)" value={newMarks} 
+                onChange={(e) => setNewMarks(e.target.value)} required 
+                style={{ flex: 1, padding: '10px', borderRadius: '5px', border: '1px solid #ccc' }}
+              />
+              <button type="submit" className="login-btn" style={{ margin: 0 }}>
+                Save to Database
+              </button>
+            </form>
           </section>
 
           <section className="dashboard-section">
-            <h2>Student Records</h2>
+            <h2>Live Student Records</h2>
             <p className="section-desc">
-              Review student attendance and latest exam marks.
+              Data pulled directly from MongoDB.
             </p>
 
             <div className="student-table-wrap">
               <table className="student-table">
                 <thead>
                   <tr>
-                    <th>Student</th>
-                    <th>Course</th>
+                    <th>Student Name</th>
+                    <th>Course/Subject</th>
                     <th>Attendance</th>
                     <th>Marks</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map((student) => (
-                    <tr key={student.name}>
+                  {dbStudents.map((student) => (
+                    <tr key={student._id || student.name}>
                       <td>{student.name}</td>
-                      <td>{student.course}</td>
-                      <td>{student.attendance}</td>
+                      <td>{student.subject}</td>
+                      <td>95%</td> {/* Default display */}
                       <td>{student.marks}/100</td>
                     </tr>
                   ))}
+                  {dbStudents.length === 0 && (
+                    <tr>
+                      <td colSpan="4" style={{ textAlign: 'center', padding: '20px' }}>No students found in database. Add one above!</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -147,7 +196,6 @@ function goHome() {
       </div>
     );
   }
-
 
   // STUDENT DASHBOARD
   if (showDashboard) {
@@ -205,15 +253,6 @@ function goHome() {
               <p>📘 Mathematics <span>In Progress</span></p>
               <p>🔬 Science <span>In Progress</span></p>
               <p>💻 Computer Studies <span>In Progress</span></p>
-            </div>
-          </section>
-
-          <section className="dashboard-section">
-            <h2>Upcoming Classes</h2>
-            <div className="dashboard-list">
-              <p>📘 Mathematics <span>Monday - 10:00 AM</span></p>
-              <p>🔬 Science <span>Tuesday - 11:00 AM</span></p>
-              <p>💻 Computer Studies <span>Wednesday - 12:00 PM</span></p>
             </div>
           </section>
         </main>
