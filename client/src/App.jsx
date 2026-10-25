@@ -61,7 +61,7 @@ function App() {
     setMessage("");
 
     if (role === "Admin/Teacher") {
-      if (username === "admin" && password === "admin123") {
+      if (username.trim() === "admin" && password === "admin123") {
         setShowLogin(false);
         setShowDashboard(false);
         setShowAdminDashboard(true);
@@ -69,10 +69,10 @@ function App() {
         setMessage("Invalid Admin credentials. (Hint: admin / admin123)");
       }
     } else {
-      // NEW: Real Student Login Logic
-      // Checks if the typed username exists anywhere in the live database
+      // NEW: Safer Student Login Logic
+      // Uses optional chaining (?.) and trim() to ignore hidden spaces and prevent crashes from blank data
       const studentExists = dbStudents.some(
-        (s) => s.name.toLowerCase() === username.toLowerCase()
+        (s) => s.name?.trim().toLowerCase() === username.trim().toLowerCase()
       );
 
       if (studentExists) {
